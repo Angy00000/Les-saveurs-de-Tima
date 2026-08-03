@@ -246,16 +246,19 @@
 
   /* ---------- Menu ---------- */
   .menu-nav{
-    display:flex; gap:10px; flex-wrap:wrap; margin-bottom:36px; position:sticky; top:78px; z-index:50;
-    background:var(--page-bg); padding:12px 0;
+    display:flex; gap:26px; overflow-x:auto; flex-wrap:nowrap; margin-bottom:32px; position:sticky; top:78px; z-index:50;
+    background:var(--page-bg); padding:14px 0 0; border-bottom:1px solid var(--border-color);
   }
-  .menu-pill{
-    padding:9px 20px; border-radius:50px; font-weight:600; font-size:14px; background:var(--surface); color:var(--text-primary);
-    border:1px solid var(--border-color); transition:.2s ease;
+  .menu-nav::-webkit-scrollbar{display:none;}
+  .menu-tab{
+    padding:8px 2px 14px; font-weight:600; font-size:14.5px; color:var(--text-muted);
+    border-bottom:3px solid transparent; white-space:nowrap; transition:.2s ease; flex:0 0 auto;
   }
-  .menu-pill.active, .menu-pill:hover{background:var(--red); color:#fff; border-color:var(--red);}
+  .menu-tab.active{color:var(--red); border-bottom-color:var(--red);}
+  .menu-tab:hover{color:var(--red);}
 
-  .menu-group{margin-bottom:44px; scroll-margin-top:150px;}
+  .menu-group{margin-bottom:44px; scroll-margin-top:150px; transition:opacity .25s ease;}
+  .menu-group.hidden-by-filter{display:none;}
   .menu-group-head{display:flex; align-items:baseline; gap:14px; margin-bottom:26px;}
   .menu-group-head h3{font-size:28px; color:var(--text-primary);}
   .menu-group-head .count{color:var(--orange); font-weight:600; font-size:14px; font-family:var(--ff-body);}
@@ -747,21 +750,49 @@ CATEGORIES.forEach((c,i)=>{
   catScroll.appendChild(el);
 });
 
-/* ===================== RENDER MENU NAV ===================== */
+/* ===================== RENDER MENU NAV (filtre par catégorie) ===================== */
 const menuNav = document.getElementById('menuNav');
-CATEGORIES.forEach((c,i)=>{
-  const pill = document.createElement('a');
-  pill.href = '#group-'+c.id;
-  pill.className = 'menu-pill' + (i===0?' active':'');
-  pill.textContent = c.emoji+' '+c.name;
-  pill.dataset.cat = c.id;
-  menuNav.appendChild(pill);
+
+const allTab = document.createElement('button');
+allTab.className = 'menu-tab active';
+allTab.textContent = 'Tout';
+allTab.dataset.cat = 'all';
+menuNav.appendChild(allTab);
+
+CATEGORIES.forEach((c)=>{
+  const n = PRODUCTS.filter(p=>p.cat===c.id).length;
+  if(n===0) return; // pas d'onglet pour une catégorie sans produit
+  const tab = document.createElement('button');
+  tab.className = 'menu-tab';
+  tab.textContent = c.name;
+  tab.dataset.cat = c.id;
+  menuNav.appendChild(tab);
 });
+
+function filterMenu(catId){
+  document.querySelectorAll('.menu-tab').forEach(t=>t.classList.toggle('active', t.dataset.cat===catId));
+  document.querySelectorAll('.menu-group').forEach(g=>{
+    const match = (catId==='all') || (g.id === 'group-'+catId);
+    g.classList.toggle('hidden-by-filter', !match);
+  });
+}
+
 menuNav.addEventListener('click', e=>{
-  const pill = e.target.closest('.menu-pill');
-  if(!pill) return;
-  document.querySelectorAll('.menu-pill').forEach(p=>p.classList.remove('active'));
-  pill.classList.add('active');
+  const tab = e.target.closest('.menu-tab');
+  if(!tab) return;
+  filterMenu(tab.dataset.cat);
+  document.getElementById('menu').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+catScroll.addEventListener('click', e=>{
+  const card = e.target.closest('.cat-card');
+  if(!card) return;
+  const catId = card.getAttribute('href').replace('#group-','');
+  const hasProducts = PRODUCTS.some(p=>p.cat===catId);
+  if(!hasProducts){ e.preventDefault(); showToast('Bientôt disponible ✨'); return; }
+  e.preventDefault();
+  filterMenu(catId);
+  document.getElementById('menu').scrollIntoView({behavior:'smooth', block:'start'});
 });
 
 /* ===================== RENDER PRODUCTS ===================== */
@@ -1047,16 +1078,7 @@ const io = new IntersectionObserver(entries=>{
 },{threshold:0.15});
 document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 
-/* ===================== MENU SCROLL-SPY ===================== */
-const spyObserver = new IntersectionObserver(entries=>{
-  entries.forEach(en=>{
-    if(en.isIntersecting){
-      const id = en.target.id.replace('group-','');
-      document.querySelectorAll('.menu-pill').forEach(p=>p.classList.toggle('active', p.dataset.cat===id));
-    }
-  });
-},{rootMargin:'-160px 0px -60% 0px', threshold:0});
-document.querySelectorAll('.menu-group').forEach(g=>spyObserver.observe(g));
+
 
 /* init */
 updateCartUI();
